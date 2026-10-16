@@ -1,0 +1,46 @@
+# Petling
+
+基于 QQPet 重构的 Windows / macOS 桌面宠物，使用 Electron、TypeScript 和 Ruffle。当前应用名称为 AgentPet。
+
+## 功能
+
+- 领养、成长、喂食、清洁、治疗与复活。
+- 宠物动画、拖拽、点脸互动、多屏移动和托盘菜单。
+- 商城、购物车、背包、玩具与背景装扮。
+- 学习、升学考试、打工及活动进度恢复。
+- 可选 AI 聊天、基础设置与存档导入导出。
+
+基础养成无需 AI 或网络。旅游、农场、社区、签到任务和复杂小游戏已归档，不参与运行构建；旧存档与原始素材继续保留。
+
+## 本地运行
+
+建议使用 Node.js 24，并安装 Git LFS。宠物素材约 329 MiB，通过 Git LFS 管理。
+
+```sh
+git clone https://github.com/YYHCOPPOLO/petling.git
+cd petling
+git lfs install --local
+git lfs pull
+npm ci
+npm run dev
+```
+
+首次启动选择宠物蛋；点击宠物打开动作栏，右键打开功能菜单。AI 默认关闭，可在设置中配置 OpenAI 兼容接口。
+
+## 测试与构建
+
+```sh
+npm test               # 单元测试
+npm run build          # 资源检查、类型检查和生产构建
+npm run test:desktop   # 当前平台的真实 Electron 回归
+npm run dist:win       # Windows 安装包，在 Windows 上执行
+npm run dist:mac       # macOS 安装包，在 macOS 上执行
+```
+
+安装包输出到 `dist/`。存档位于应用数据目录的 `AgentPet/save.json`，导出默认排除 API Key。
+
+## 文档与来源
+
+[重构范围](docs/basic-refactor.md) · [架构说明](docs/architecture.md) · [验证记录](docs/verification.md) · [资源替换](docs/assets.md)
+
+基于 [AnkioTomas/qqpet](https://github.com/AnkioTomas/qqpet)，代码采用 [GPL-3.0-only](LICENSE)。QQ 宠物美术及 SWF 等资源的版权和来源见 [第三方声明](THIRD_PARTY_NOTICES.md)。

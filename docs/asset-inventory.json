@@ -1,0 +1,156 @@
+{
+  "pack": "qqpet-legacy",
+  "profile": "basic",
+  "files": 8062,
+  "bytes": 345285596,
+  "extensions": {
+    ".svg": 168,
+    ".swf": 1706,
+    ".flp": 4,
+    ".webp": 231,
+    ".png": 2744,
+    ".bmp": 19,
+    ".xml": 148,
+    ".ico": 92,
+    ".gif": 1018,
+    ".cur": 35,
+    ".jpg": 1741,
+    ".mp3": 7,
+    ".txt": 1,
+    ".ini": 3,
+    ".zip": 1,
+    ".ttf": 1,
+    ".as": 134,
+    ".fla": 9
+  },
+  "categories": {
+    "achievement": {
+      "files": 3,
+      "bytes": 34859
+    },
+    "Action": {
+      "files": 1382,
+      "bytes": 75922363
+    },
+    "album": {
+      "files": 231,
+      "bytes": 3760534
+    },
+    "answerQuestions": {
+      "files": 18,
+      "bytes": 71680
+    },
+    "avatar": {
+      "files": 6,
+      "bytes": 162938
+    },
+    "control": {
+      "files": 141,
+      "bytes": 538176
+    },
+    "email": {
+      "files": 58,
+      "bytes": 213101
+    },
+    "face": {
+      "files": 1,
+      "bytes": 1985
+    },
+    "fishing": {
+      "files": 63,
+      "bytes": 1703077
+    },
+    "float": {
+      "files": 4,
+      "bytes": 11420
+    },
+    "game": {
+      "files": 101,
+      "bytes": 139980845
+    },
+    "icon.ico": {
+      "files": 1,
+      "bytes": 2550
+    },
+    "img_res": {
+      "files": 2220,
+      "bytes": 36086733
+    },
+    "info": {
+      "files": 48,
+      "bytes": 683266
+    },
+    "leave.ico": {
+      "files": 1,
+      "bytes": 1150
+    },
+    "Menu": {
+      "files": 50,
+      "bytes": 23106
+    },
+    "mstx": {
+      "files": 11,
+      "bytes": 3627334
+    },
+    "penguin.ico": {
+      "files": 1,
+      "bytes": 79515
+    },
+    "petsoc": {
+      "files": 2915,
+      "bytes": 63342578
+    },
+    "qqfarm": {
+      "files": 6,
+      "bytes": 1262630
+    },
+    "qqfont.ttf": {
+      "files": 1,
+      "bytes": 1669784
+    },
+    "reset": {
+      "files": 1,
+      "bytes": 145634
+    },
+    "shppingMall": {
+      "files": 254,
+      "bytes": 1817423
+    },
+    "signIn": {
+      "files": 3,
+      "bytes": 30207
+    },
+    "smallGame": {
+      "files": 103,
+      "bytes": 7620080
+    },
+    "smallGamec1": {
+      "files": 126,
+      "bytes": 2851447
+    },
+    "stateInfo": {
+      "files": 121,
+      "bytes": 731071
+    },
+    "sysSeting": {
+      "files": 99,
+      "bytes": 925198
+    },
+    "talk": {
+      "files": 8,
+      "bytes": 816460
+    },
+    "tool.ico": {
+      "files": 1,
+      "bytes": 13804
+    },
+    "travel": {
+      "files": 5,
+      "bytes": 242437
+    },
+    "windowTip": {
+      "files": 79,
+      "bytes": 912211
+    }
+  }
+}

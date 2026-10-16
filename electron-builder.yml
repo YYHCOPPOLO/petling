@@ -1,0 +1,33 @@
+appId: local.agentpet.desktop
+productName: AgentPet
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - LICENSE
+  - THIRD_PARTY_NOTICES.md
+extraResources:
+  - from: resources
+    to: .
+    filter:
+      - '**/*'
+asar: true
+publish: []
+artifactName: '${productName}-${version}-${os}-${arch}.${ext}'
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  category: public.app-category.games

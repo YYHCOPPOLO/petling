@@ -1,0 +1,36 @@
+{
+  "name": "agent-pet",
+  "productName": "AgentPet",
+  "version": "0.1.0",
+  "description": "Windows / macOS 桌面宠物，基于 QQPet 移植与重构",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "engines": { "node": ">=22.16.0" },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "tsx --test tests/*.test.ts",
+    "test:desktop": "node scripts/desktop-smoke.mjs",
+    "assets:check": "tsx scripts/check-assets.ts",
+    "assets:inventory": "tsx scripts/check-assets.ts --inventory",
+    "build": "npm run assets:check && npm run typecheck && electron-vite build",
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:win": "npm run build && electron-builder --win --x64 --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --arm64 --x64 --publish never",
+    "pack": "npm run build && electron-builder --dir --publish never"
+  },
+  "devDependencies": {
+    "@ruffle-rs/ruffle": "0.6.0",
+    "@types/node": "^24.9.0",
+    "electron": "^44.6.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "playwright": "^1.56.0",
+    "tsx": "^4.20.6",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.7",
+    "vite-plugin-static-copy": "^4.1.1"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "id": "qqpet-legacy",
+  "name": "QQPet 原版资源（暂时保留）",
+  "root": "pet",
+  "overrides": {}
+}
