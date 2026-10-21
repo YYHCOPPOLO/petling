@@ -80,14 +80,39 @@ const ADULT_MOODS = Object.fromEntries(Object.entries(MOOD_PLAY).map(([m, play])
 /** Adult animations for these live in a per-mood directory. */
 const BY_MOOD = ['normal', 'drag', 'play', 'speak', 'appear', 'hide']
 
-export function route(sex: Sex, stage: Stage, action: string, mood: Mood): Target {
+function routeInfo(sex: Sex, stage: Stage, action: string, mood: Mood): { dir: string; r: Route } {
   let dir = `pet/Action/${sex}/${stage}/`
   let routes: Table = TABLES[sex][stage]
   if (stage === 'Adult' && BY_MOOD.includes(action)) {
     routes = ADULT_MOODS[mood]
     dir += `${mood}/`
   }
-  const r = routes[action]
+  return { dir, r: routes[action] }
+}
+
+/** Every random variant the basic renderer can select; used by the resource audit. */
+export function routedAssetUrls(): string[] {
+  const urls = new Set<string>()
+  for (const sex of Object.keys(TABLES) as Sex[]) {
+    for (const stage of Object.keys(TABLES[sex]) as Stage[]) {
+      for (const mood of Object.keys(ADULT_MOODS) as Mood[]) {
+        const actions = new Set([...Object.keys(TABLES[sex][stage]), ...BY_MOOD])
+        for (const action of actions) {
+          // leadClip() uses Speak for these two adult needs; the old pack has no clips.
+          if (stage === 'Adult' && (action === 'hungry' || action === 'dirty')) continue
+          const { dir, r } = routeInfo(sex, stage, action, mood)
+          if (r.start && r.end && !r.notNum) {
+            for (let n = r.start; n <= r.end; n++) urls.add(`${dir}${r.name}${n}.swf`)
+          } else urls.add(`${dir}${r.name}.swf`)
+        }
+      }
+    }
+  }
+  return [...urls].sort()
+}
+
+export function route(sex: Sex, stage: Stage, action: string, mood: Mood): Target {
+  const { dir, r } = routeInfo(sex, stage, action, mood)
   const n = r.start && r.end && !r.notNum ? Math.trunc(Math.random() * r.end + r.start) : ''
   return { url: `${dir}${r.name}${n}.swf`, opt: r }
 }

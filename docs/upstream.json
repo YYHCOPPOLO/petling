@@ -8,7 +8,9 @@
     "darwin-arm64",
     "darwin-x64"
   ],
-  "retainedArtFiles": 8062,
+  "importedArtFiles": 8062,
+  "currentArtInventory": "docs/asset-inventory.json",
+  "artFingerprintScope": "original import on 2026-10-14, before basic asset pruning",
   "artComparedByteForByte": true,
   "artTreeSha256": "96da99eeae53cdc842a33b1ef34e346e722ed6885e038915a28cff47726f081b"
 }

@@ -5,10 +5,11 @@ directories:
   buildResources: build
 files:
   - out/**
+  - '!out/asset-pack/**'
   - LICENSE
   - THIRD_PARTY_NOTICES.md
 extraResources:
-  - from: resources
+  - from: out/asset-pack
     to: .
     filter:
       - '**/*'

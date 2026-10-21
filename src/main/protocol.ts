@@ -9,7 +9,7 @@ import { AssetCatalog } from './assets'
 export const APP_ORIGIN = 'app://bundle'
 
 const rendererRoot = join(import.meta.dirname, '../renderer')
-// resources/{pet,icons} live next to the app in production (extraResources).
+// The audited asset pack lives next to the app in production (extraResources).
 export const resourcesRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
 let assets: AssetCatalog | undefined
 export const resourceCatalog = (): AssetCatalog => assets ??= new AssetCatalog(resourcesRoot)

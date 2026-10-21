@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "qqpet-legacy",
-  "name": "QQPet 原版资源（暂时保留）",
+  "id": "qqpet-basic-legacy",
+  "name": "基础养成资源（待原创替换）",
   "root": "pet",
   "overrides": {}
 }

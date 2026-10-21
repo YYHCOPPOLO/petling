@@ -10,11 +10,11 @@
 - 学习、升学考试、打工及活动进度恢复。
 - 可选 AI 聊天、基础设置与存档导入导出。
 
-基础养成无需 AI 或网络。旅游、农场、社区、签到任务和复杂小游戏已归档，不参与运行构建；旧存档与原始素材继续保留。
+基础养成无需 AI 或网络。旅游、农场、社区、签到任务和复杂小游戏已归档，不参与运行构建；旧存档继续兼容，资源包已按基础功能依赖精简。
 
 ## 本地运行
 
-建议使用 Node.js 24，并安装 Git LFS。宠物素材约 329 MiB，通过 Git LFS 管理。
+建议使用 Node.js 24，并安装 Git LFS。当前宠物素材为 3,673 个文件、约 98 MiB，通过 Git LFS 管理。
 
 ```sh
 git clone https://github.com/YYHCOPPOLO/petling.git
@@ -31,6 +31,7 @@ npm run dev
 
 ```sh
 npm test               # 单元测试
+npm run assets:audit   # 查看资源依赖和未引用文件
 npm run build          # 资源检查、类型检查和生产构建
 npm run test:desktop   # 当前平台的真实 Electron 回归
 npm run dist:win       # Windows 安装包，在 Windows 上执行
@@ -41,6 +42,6 @@ npm run dist:mac       # macOS 安装包，在 macOS 上执行
 
 ## 文档与来源
 
-[重构范围](docs/basic-refactor.md) · [架构说明](docs/architecture.md) · [验证记录](docs/verification.md) · [资源替换](docs/assets.md)
+[产品需求](docs/product-requirements.md) · [性能要求](docs/performance-requirements.md) · [重构评估](docs/agent-refactor-assessment.md) · [基础重构](docs/basic-refactor.md) · [架构说明](docs/architecture.md) · [验证记录](docs/verification.md) · [资源替换](docs/assets.md)
 
 基于 [AnkioTomas/qqpet](https://github.com/AnkioTomas/qqpet)，代码采用 [GPL-3.0-only](LICENSE)。QQ 宠物美术及 SWF 等资源的版权和来源见 [第三方声明](THIRD_PARTY_NOTICES.md)。
