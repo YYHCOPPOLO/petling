@@ -9,7 +9,7 @@ import { _electron as electron } from 'playwright'
 
 if (!['win32', 'darwin'].includes(process.platform)) throw new Error('桌面回归测试需要 Windows 或 macOS')
 const root = resolve('.')
-const output = resolve('.verification/desktop')
+const output = resolve(process.env.AGENT_PET_TEST_OUTPUT || '.verification/desktop')
 const data = resolve(output, `data-${Date.now()}`)
 mkdirSync(data, { recursive: true })
 const run = promisify(execFile)
@@ -187,6 +187,20 @@ try {
     const used = await page.evaluate(() => window.qqpet.load())
     assert.notDeepEqual(used.selfGoodDatas, after.selfGoodDatas)
     await page.locator('.ui-shop .close').click()
+  })
+
+  await check('主进程命令去重和养成写入隔离', async () => {
+    const result = await page.evaluate(async () => {
+      const snapshot = await window.qqpet.snapshot()
+      const request = { epoch: snapshot.epoch, requestId: `${Date.now()}:${crypto.randomUUID()}`, name: 'pet.interact', input: { face: true } }
+      const first = await window.qqpet.command(request)
+      const second = await window.qqpet.command(request)
+      let rejected = false
+      try { await window.qqpet.save({ petInfo: { yb: 999999 } }) } catch { rejected = true }
+      const after = await window.qqpet.load()
+      return { first: first.result.status, replayed: second.replayed, rejected, interactions: after.gameSaveDatas.ddw - snapshot.save.gameSaveDatas.ddw, balance: after.petInfo.yb === snapshot.save.petInfo.yb }
+    })
+    assert.deepEqual(result, { first: 'succeeded', replayed: true, rejected: true, interactions: 1, balance: true })
   })
 
   await check('基础功能入口、资料与已归档扩展隔离', async () => {

@@ -1,6 +1,5 @@
 import { createPetInput, type PetPointerInput } from './pet/input'
 import { IDLE, note } from './pet/ai'
-import { resumeTask } from './pet/jobs'
 import { machine, speak, startPet } from './pet/pet'
 import { applyEdge, info, onInfoChange, petSize, save, setInfo, stage, update } from './pet/store'
 import type { DesktopCursor } from '../shared/ipc'
@@ -288,7 +287,6 @@ window.qqpet.onPresence((gone) => {
 })
 
 if (save.havePet) {
-  resumeTask()
   begin()
 } else adoptPet()
 startAutoUpdate()

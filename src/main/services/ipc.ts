@@ -6,14 +6,13 @@ import { latestRelease } from '../../shared/update'
 import { assertJson, webUrl } from '../../shared/validation'
 import { TRAY_STATES } from '../../shared/tray'
 import { APP_NAME } from '../../shared/app-info'
-import { exportSave, getSave, importSave, patchSave, resetSave } from '../save'
+import { exportSave, getSave, importSave, petHost, resetSave } from '../save'
 import type { createPetTray } from '../tray'
 import type { Lifetime } from '../lifecycle'
 
 type TrayService = ReturnType<typeof createPetTray>
 
 export function registerDesktopIpc(win: BrowserWindow, tray: TrayService, lifetime: Lifetime): void {
-  let saveError: Error | undefined
   let panel = false
   const report = (operation: string, error: unknown): void => {
     const message = error instanceof Error ? error.message : String(error)
@@ -23,14 +22,14 @@ export function registerDesktopIpc(win: BrowserWindow, tray: TrayService, lifeti
   // Only the pet's isolated preload may control its native window or the save.
   const handle = (channel: string, run: (...args: any[]) => unknown): void => {
     ipcMain.handle(channel, (event, ...args: unknown[]) => {
-      if (event.sender !== win.webContents) throw new Error('未授权的桌面请求')
+      if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('未授权的桌面请求')
       return run(...args)
     })
     lifetime.defer(() => ipcMain.removeHandler(channel))
   }
   const on = (channel: string, run: (...args: any[]) => unknown): void => {
     const listener = (event: Electron.IpcMainEvent, ...args: unknown[]): void => {
-      if (event.sender !== win.webContents) return
+      if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) return
       try { Promise.resolve(run(...args)).catch(error => report(channel, error)) }
       catch (error) { report(channel, error) }
     }
@@ -41,18 +40,18 @@ export function registerDesktopIpc(win: BrowserWindow, tray: TrayService, lifeti
   const relaunch = (): void => { lifetime.dispose(); app.relaunch(); app.exit(0) }
 
   handle(IPC.load, () => getSave())
-  on(IPC.save, (patch: SavePatch) => {
-    try {
-      patchSave(patch)
-      saveError = undefined
-    } catch (error) {
-      saveError = error instanceof Error ? error : new Error(String(error))
-      throw error
-    }
-    if (patch.petInfo) tray.retip(getSave().petInfo)
-    if (patch.settings?.hd !== undefined) tray.setState(getSave())
-  })
-  handle(IPC.flush, () => { if (saveError) throw saveError })
+  const host = petHost()
+  lifetime.defer(host.subscribe(update => {
+    tray.retip(update.snapshot.save.petInfo)
+    tray.setState(update.snapshot.save)
+    if (!win.isDestroyed()) win.webContents.send(IPC.state, update)
+  }))
+  lifetime.interval(() => { try { host.interval() } catch (error) { report('pet:clock', error) } }, 60_000)
+  handle(IPC.snapshot, () => host.repository.snapshot())
+  handle(IPC.command, request => host.execute(request))
+  handle(IPC.start, () => host.start())
+  handle(IPC.save, (patch: SavePatch) => host.preferences(patch))
+  handle(IPC.flush, () => undefined)
   on(IPC.resetPet, (sex?: Sex) => { resetSave(sex); relaunch() })
   handle(IPC.exportSave, async () => {
     const day = new Date().toISOString().slice(0, 10)

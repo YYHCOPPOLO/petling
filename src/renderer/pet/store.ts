@@ -1,84 +1,71 @@
 import type { TrayState } from '../../shared/ipc'
 import type { PetInfo, SaveData, SavePatch } from '../../shared/save'
 import { petSizeFor } from '../../shared/layout'
-import { goodOf, lookupGood, type TimedType } from '../../core/pet/catalog'
-import { levelOf, stageOf, type Stage } from '../../core/pet/level'
+import { stageOf, type Stage } from '../../core/pet/level'
+import { growthPerMinute as growthRate, fatigue as petFatigue } from '../../core/pet/clock'
+import { PetClient } from '../../shared/pet-client'
+import type { PetEvent, PetUpdate } from '../../shared/pet-command'
 import type { Mood } from './router'
 import { viewportSize } from '../ui/viewport'
 
 if (!window.__qqpetInitialSave) throw new Error('QQPet store must be loaded through bootstrap.ts')
-export const save: SaveData = window.__qqpetInitialSave
+export const save: SaveData = window.__qqpetInitialSave.save
 export const info: PetInfo = save.petInfo
-
-let patch: Record<string, unknown> = {}
 let flushTimer = 0
 const changeListeners: ((patch: SavePatch) => void)[] = []
 export const onSaveChange = (listener: (patch: SavePatch) => void): void => { changeListeners.push(listener) }
-let publishing = false
+const eventListeners: ((event: PetEvent) => void)[] = []
+export const onPetEvent = (listener: (event: PetEvent) => void): void => { eventListeners.push(listener) }
+type Listener = (key: keyof PetInfo, prev: unknown) => void
+const listeners: Listener[] = []
+export const onInfoChange = (listener: Listener): void => { listeners.push(listener) }
+
+function project(update: PetUpdate): void {
+  if (!client.hasError) document.getElementById('save-error')?.remove()
+  const before = { ...info }
+  const change: SavePatch = {}
+  for (const key of Object.keys(update.snapshot.save) as (keyof SaveData)[]) {
+    const value = update.snapshot.save[key]
+    if (JSON.stringify(save[key]) === JSON.stringify(value)) continue
+    Object.assign(change, { [key]: value })
+    if (value && typeof value === 'object' && !Array.isArray(value)) Object.assign(save[key] as object, value)
+    else Object.assign(save, { [key]: value })
+  }
+  for (const listener of changeListeners) listener(change)
+  for (const key of Object.keys(info) as (keyof PetInfo)[]) if (before[key] !== info[key]) for (const listener of listeners) listener(key, before[key])
+  for (const event of update.events) for (const listener of eventListeners) listener(event)
+}
+
+export const client = new PetClient(structuredClone(window.__qqpetInitialSave), window.qqpet, project, error => {
+  console.error('宠物状态提交失败：', error)
+  const notice = document.getElementById('save-error') ?? document.body.appendChild(Object.assign(document.createElement('div'), { id: 'save-error' }))
+  notice.setAttribute('role', 'alert')
+  notice.style.cssText = 'position:fixed;top:16px;left:16px;padding:12px;background:white;color:#900;z-index:9999'
+  notice.textContent = '状态提交未确认，请核对后重试。'
+})
+window.qqpet.onState(update => client.receive(update))
 
 function flushPatch(): void {
   if (flushTimer) window.clearTimeout(flushTimer)
   flushTimer = 0
-  if (!Object.keys(patch).length) return
-  window.qqpet.save(patch as SavePatch)
-  patch = {}
+  client.flushPreferences()
 }
-
-export async function flushSave(): Promise<void> {
-  flushPatch()
-  await window.qqpet.flush()
-}
+export async function flushSave(): Promise<void> { flushPatch(); await client.flush() }
 window.__qqpetFlush = flushSave
 addEventListener('pagehide', () => {
   if (!window.__qqpetClosing) void flushSave().catch((error: unknown) => console.error('Save flush failed:', error))
 })
 
-/** Applies a change to `save` and writes it to disk, batched like the original (200 ms). */
-export function update<K extends keyof SaveData>(key: K, value: SavePatch[K]): void {
-  const target = save as unknown as Record<string, unknown>
-  const isGroup = typeof value === 'object' && value !== null && !Array.isArray(value)
-  if (isGroup) {
-    Object.assign(target[key] as object, value)
-    patch[key] = { ...(patch[key] as object), ...value }
-  } else {
-    target[key] = value
-    patch[key] = value
-  }
+/** Only desktop preferences are optimistic; gameplay waits for a host commit. */
+export function update<K extends 'settings' | 'petInfo'>(key: K, value: SavePatch[K]): void {
+  client.update({ [key]: value } as SavePatch)
   flushTimer ||= window.setTimeout(flushPatch, 200)
-  if (!publishing) for (const listener of changeListeners) listener({ [key]: value } as SavePatch)
 }
-
-type NumKey = { [K in keyof PetInfo]: PetInfo[K] extends number ? K : never }[keyof PetInfo]
-type Listener = (key: keyof PetInfo, prev: unknown) => void
-const listeners: Listener[] = []
-
-export const onInfoChange = (l: Listener): void => void listeners.push(l)
-
-/** Install all command effects before notifying views or triggering animation reactions. */
-export function publishChange(change: SavePatch): void {
-  const before = { ...info }
-  publishing = true
-  try {
-    for (const key of Object.keys(change) as (keyof SaveData)[]) update(key, change[key])
-  } finally { publishing = false }
-  for (const listener of changeListeners) listener(change)
-  for (const key of Object.keys(info) as (keyof PetInfo)[]) {
-    if (before[key] !== info[key]) for (const listener of listeners) listener(key, before[key])
-  }
+export function setInfo<K extends 'name' | 'host' | 'lastX' | 'lastY'>(key: K, value: PetInfo[K]): void {
+  if (info[key] !== value) update('petInfo', { [key]: value })
 }
-
-export function setInfo<K extends keyof PetInfo>(key: K, value: PetInfo[K]): void {
-  const prev = info[key]
-  if (prev === value) return
-  update('petInfo', { [key]: value })
-  for (const l of listeners) l(key, prev)
-}
-
-export const addInfo = (key: NumKey, delta: number): void => setInfo(key, info[key] + delta)
-
 type Activity = 'work' | 'study' | 'ill' | 'die'
-export const activity = (k: Activity): string | null => save.activeOption[k] as string | null
-export const setActivity = (k: Activity, v: string | null): void => update('activeOption', { [k]: v })
+export const activity = (key: Activity): string | null => save.activeOption[key] as string | null
 
 const MOODS: [number, Mood, number][] = [
   [800, 'happy', 1],
@@ -112,29 +99,12 @@ export function applyEdge(): 'hideleft' | 'hideright' | null {
   return edge
 }
 
-export function growthPerMinute(): number {
-  if (info.mood <= 0) return 10 / 60
-  const rate = MOODS.find(([min]) => info.mood >= min)![2]
-  let perHour = 80 * rate + (info.pinkDiamond ? 10 : 0)
-  for (const [type, t] of Object.entries(save.selfGoodUseOption)) if (t) perHour += goodOf(type as TimedType, t.id).group ?? 0
-  return (perHour * (info.sweetHeartOverTime ? 1.1 : 1)) / 60
-}
+export const growthPerMinute = (): number => growthRate(save)
 
 export const busy = (): boolean => Boolean(activity('work') || activity('study'))
 
 /** 0 (fresh) and up; drives random illness and health loss. */
-export function fatigue(): number {
-  const c = save.petComputedlInfo
-  const m = info.mood / c.moodMax
-  const cl = info.clean / c.cleanMax
-  const h = info.hunger / c.hungerMax
-  let f = (info.health !== 5 ? 2 : 0) + (m < 0.2 ? 3 : m < 0.5 ? 2 : 0) + (cl < 0.2 ? 2 : cl < 0.5 ? 1 : 0) + (h < 0.2 ? 2 : h < 0.5 ? 1 : 0)
-  if (!f) return 0
-  if (busy()) f += 2
-  const strong = info.strong
-  const relief = c.level < 10 ? (strong > 500 ? 2 : 0) : strong > 50000 ? 4 : strong > 5000 ? 2 : 0
-  return Math.max(0, f - relief)
-}
+export const fatigue = (): number => petFatigue(save)
 
 /** 0..20: VIP flags, charm and intelligence help; fatigue hurts. */
 export function luck(): number {
@@ -142,17 +112,6 @@ export function luck(): number {
   l += [500, 5000, 50000].filter((v) => info.charm > v).length + [800, 8000, 80000].filter((v) => info.intel > v).length
   return Math.min(Math.max(0, l - (fatigue() >> 1)), 20)
 }
-
-/** Recomputes level and stat caps from growth; returns the previous level. */
-export function syncLevel(): number {
-  const c = save.petComputedlInfo
-  const prev = c.level
-  const l = levelOf(info.growth)
-  const max = 1000 + Math.min(l.level, 70) * 100
-  if (l.level !== prev || max !== c.hungerMax) update('petComputedlInfo', { ...l, hungerMax: max, cleanMax: max })
-  return prev
-}
-
 let tray: TrayState | null = null
 
 export function setTray(s: TrayState): void {
@@ -164,7 +123,6 @@ export function setTray(s: TrayState): void {
 
 export function setPaused(on: boolean): void {
   update('settings', { paused: on })
-  update('nowTimeLine', Math.floor(Date.now() / 1000))
   refreshTray()
 }
 
@@ -179,15 +137,4 @@ export function refreshTray(): void {
   else setTray('normal')
 }
 
-// Load-time fixups from the original setDefaultPetInfoData: a sick pet always
-// has an illness line. Unlike the original, activities survive a restart (resumeTask).
-for (const type of Object.keys(save.selfGoodUseOption) as TimedType[]) {
-  const timed = save.selfGoodUseOption[type]
-  if (timed && (!lookupGood(type, timed.id) || !Number.isFinite(timed.left) || timed.left <= 0)) {
-    update('saveJsonData', { [`legacyTimed_${type}`]: JSON.stringify(timed) })
-    update('selfGoodUseOption', { [type]: null })
-  }
-}
 update('petInfo', { lastX: info.lastX | 0, lastY: info.lastY | 0 })
-if (info.health < 5 && !activity('ill')) setActivity('ill', '1-')
-syncLevel()

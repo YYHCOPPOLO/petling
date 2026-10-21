@@ -1,4 +1,4 @@
-import { examQuestions, submitExam } from '../../core/pet/activities'
+import { examQuestions } from '../../core/pet/activities'
 import { command } from '../pet/commands'
 import { openFrame } from './box'
 import './css/exam.css'
@@ -39,10 +39,10 @@ export function openExam(topic: string, pass: () => void): void {
     if (d < 0 || picked[at] >= 0) at += d
     render()
   }
-  const submit = (): void => {
+  const submit = async (): Promise<void> => {
     if (picked[at] < 0) return
     close()
-    const result = command(state => submitExam(state, topic, questions.map((question, i) => ({ title: question.title, answer: question.options[picked[i]] }))))
+    const result = await command('pet.submitExam', { topic, answers: questions.map((question, i) => ({ title: question.title, answer: question.options[picked[i]] })) })
     if (result.status === 'failed') windowView({ title: '升学结果', msg: result.error.message })
     else if (result.data.passed) pass()
     else windowView({ title: '升学结果', msg: '抱歉未通过！' })

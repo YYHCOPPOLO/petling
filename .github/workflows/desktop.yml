@@ -2,47 +2,145 @@ name: Desktop
 
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.version.outputs.release }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Validate package and tag versions
+        id: version
+        run: node scripts/release.ts
+
   desktop:
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      AGENT_PET_UPDATE_API: https://api.github.com/repos/${{ github.repository }}/releases/latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           lfs: true
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: npm run test:desktop
+      - name: Source desktop regression
+        run: npm run test:desktop
+        env:
+          AGENT_PET_TEST_OUTPUT: .verification/desktop-source
       - name: Windows installer
         if: runner.os == 'Windows'
-        run: npx electron-builder --win --x64 --publish never
-      - name: macOS installers
+        run: npx --no-install electron-builder --win --x64 --publish never
+      - name: macOS installers (ad-hoc signing, no Developer ID)
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac --arm64 --x64 --publish never
-      - uses: actions/upload-artifact@v4
-        if: always()
+        env:
+          CSC_FOR_PULL_REQUEST: 'true' # Only ad-hoc signing; no signing credentials are supplied.
+        run: npx --no-install electron-builder --mac --arm64 --x64 --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false
+      - name: Packaged desktop regression on the runner architecture
+        run: npm run test:packaged
+      - name: Upload verified installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: desktop-${{ runner.os }}
+          name: installers-${{ runner.os }}
           path: |
             dist/*.exe
             dist/*.dmg
             dist/*.zip
-            .verification/desktop/*.png
-            .verification/desktop/report.json
-            .verification/desktop/process-cleanup.json
-            .verification/desktop/electron.log
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: diagnostics-${{ runner.os }}
+          path: |
+            .verification/desktop-*/*.png
+            .verification/desktop-*/report.json
+            .verification/desktop-*/process-cleanup.json
+            .verification/desktop-*/electron.log
+          include-hidden-files: true
           if-no-files-found: warn
+          retention-days: 7
+
+  release:
+    needs: [preflight, desktop]
+    if: needs.preflight.outputs.release == 'true' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: installers-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify complete matrix and generate checksums
+        run: node scripts/release.ts manifest release-assets
+      - name: Publish complete release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > "$RUNNER_TEMP/release-draft"; then
+            if [ "$(cat "$RUNNER_TEMP/release-draft")" != "true" ]; then
+              echo "Release $RELEASE_TAG is already published; refusing to replace published assets."
+              exit 0
+            fi
+          else
+            flags=()
+            if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+            gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes \
+              --title "AgentPet $RELEASE_TAG" \
+              --notes 'Windows x64 and macOS arm64/x64 installers. Windows is unsigned; macOS uses ad-hoc signing and is not notarized. Checksums and the source commit are included in the attached manifest.' \
+              "${flags[@]}"
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          if [ "$PRERELEASE" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi

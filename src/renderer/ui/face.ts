@@ -2,7 +2,6 @@ import { FACE } from '../pet/data/face'
 import { machine } from '../pet/pet'
 import { rand } from '../pet/rand'
 import { info, mood, save, stage, update } from '../pet/store'
-import { interact } from '../../core/pet/interaction'
 import { command } from '../pet/commands'
 import { floatMood } from './float'
 import { windowView } from './window-view'
@@ -14,10 +13,10 @@ layer.className = 'face'
 const petEl = document.getElementById('pet')!
 petEl.appendChild(layer)
 
-function poke(key: string, s = 1, e = s): void {
+async function poke(key: string, s = 1, e = s): Promise<void> {
   layer.replaceChildren()
-  const result = command(state => interact(state, rand(5, 15), true))
-  if (result.status === 'failed') return
+  const result = await command('pet.interact', { face: true })
+  if (result.status === 'failed') return windowView({ msg: result.error.message })
   if (result.data.first) windowView({ title: '逗逗我~~', msg: '恭喜成功开启逗宠成就~~', goods: [{ url: 'pet/achievement/ddw.svg', name: '逗宠成就' }] })
   void floatMood(result.data.moodDelta)
   const dir = stage() === 'Adult' ? `Adult/${mood()}` : stage()

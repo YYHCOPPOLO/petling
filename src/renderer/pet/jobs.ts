@@ -1,12 +1,12 @@
-import { diploma, lessons, startActivity, studyGoods as currentCourses, workGoods } from '../../core/pet/activities'
+import { diploma, lessons, studyGoods as currentCourses, workGoods } from '../../core/pet/activities'
 import { attrs, type Good } from '../../core/pet/catalog'
 import { openExam } from '../ui/exam'
-import { onActivityEnd, resumeTask } from './activity'
+import { onActivityEnd } from './activity'
 import { command } from './commands'
 import { speak } from './pet'
 import { refreshTray, save } from './store'
 
-export { diploma, workGoods, resumeTask }
+export { diploma, workGoods }
 export const studyGoods = (): Good[] => currentCourses(save)
 
 export function describeWork(good: Good): string[] {
@@ -25,8 +25,8 @@ function examPrompt(good: Good): void {
   })
 }
 
-function begin(kind: 'work' | 'study', good: Good): boolean {
-  const result = command(state => startActivity(state, kind, good.id))
+async function begin(kind: 'work' | 'study', good: Good): Promise<boolean> {
+  const result = await command('pet.startActivity', { kind, id: good.id })
   if (result.status === 'failed') {
     if (result.error.code === 'EXAM_REQUIRED') examPrompt(good)
     else speak({ s: result.error.message, now: true, ai: false }, 'speak')
@@ -37,8 +37,8 @@ function begin(kind: 'work' | 'study', good: Good): boolean {
   return true
 }
 
-export const work = (good: Good): boolean => begin('work', good)
-export const study = (good: Good): boolean => begin('study', good)
+export const work = (good: Good): Promise<boolean> => begin('work', good)
+export const study = (good: Good): Promise<boolean> => begin('study', good)
 
 onActivityEnd(progress => {
   if (!progress.completed) return

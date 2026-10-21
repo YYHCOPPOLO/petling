@@ -299,9 +299,14 @@ export function openShop(): void {
   }
 
   /** Buys the given goods behind the original's 0.5 s "buying" overlay; false when 元宝 run short. */
-  function checkout(items: [Good, number][], quiet: boolean): boolean {
-    if (!buyCart(items)) return false
+  let checkingOut = false
+  async function checkout(items: [Good, number][], quiet: boolean): Promise<boolean> {
+    if (checkingOut) return false
+    checkingOut = true
     busyMark.style.display = ''
+    const purchased = await buyCart(items)
+    checkingOut = false
+    if (!purchased) { busyMark.style.display = 'none'; return false }
     if (!quiet) speak({ s: '[host]，购买成功，物品已经放进背包啦~', now: true, ai: false }, 'speak')
     setTimeout(() => (busyMark.style.display = 'none'), 500)
     return true
@@ -329,10 +334,10 @@ export function openShop(): void {
       div('attributeTotal'),
       div(
         'scm_foot',
-        button('qrzf', () => {
+        button('qrzf', async () => {
           if (
             !cart.size ||
-            !checkout(
+            !await checkout(
               [...cart.values()].map((g) => [g, g.cartNum]),
               true,
             )

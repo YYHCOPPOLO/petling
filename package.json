@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "tsx --test tests/*.test.ts",
     "test:desktop": "node scripts/desktop-smoke.mjs",
+    "test:packaged": "node scripts/test-packaged.mjs",
     "assets:check": "tsx scripts/check-assets.ts",
     "assets:audit": "tsx scripts/check-assets.ts --audit",
     "assets:inventory": "tsx scripts/check-assets.ts --inventory",

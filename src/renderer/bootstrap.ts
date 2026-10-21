@@ -1,8 +1,6 @@
-import type { SaveData } from '../shared/save'
-
 /** All eager UI modules receive an initialized store, without top-level await in the module graph. */
 export async function bootstrap(): Promise<void> {
-  const initial: SaveData = await window.qqpet.load()
+  const initial = await window.qqpet.snapshot()
   window.__qqpetInitialSave = initial
   await import('./main')
 }

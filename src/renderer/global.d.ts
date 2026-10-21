@@ -1,10 +1,10 @@
 import type { QQPetApi } from '../shared/ipc'
-import type { SaveData } from '../shared/save'
+import type { PetSnapshot } from '../shared/pet-command'
 
 declare global {
   interface Window {
     qqpet: QQPetApi
-    __qqpetInitialSave?: SaveData
+    __qqpetInitialSave?: PetSnapshot
     __qqpetFlush?: () => Promise<void>
     __qqpetClosing?: boolean
     RufflePlayer: { newest(): { createPlayer(): RufflePlayerElement } }

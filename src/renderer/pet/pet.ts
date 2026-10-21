@@ -1,40 +1,32 @@
-import { interact } from '../../core/pet/interaction'
+import { levelOf } from '../../core/pet/level'
 import { command } from './commands'
 import { PetSwf } from '../swf/pet-swf'
 import { floatMood } from '../ui/float'
 import { retell, say } from '../ui/talk'
 import { DEAD, illOf } from '../../core/pet/illness'
 import { TALK, type Line } from './data/talk'
-import { advanceTask, stopTask } from './activity'
 import { IDLE, rephrase } from './ai'
 import { dateTalk, festival, greeting } from './calendar'
-import { listGoods, tickTimed } from './goods'
-import { doctor, useItem } from './items'
+import { doctor, presentItem } from './items'
 import { Machine, type Pose } from './machine'
 import { rand } from './rand'
 import {
   activity,
-  addInfo,
   applyEdge,
   busy,
   edgeSide,
-  fatigue,
-  growthPerMinute,
   info,
   mood,
   onInfoChange,
-  onSaveChange,
+  onPetEvent,
   petSize,
   refreshTray,
   save,
-  setActivity,
   setInfo,
   setTray,
   stage,
-  syncLevel,
-  update,
 } from './store'
-import { dayStart, newDay } from './vip'
+import { dayStart } from './vip'
 
 let idleTimer = 0
 
@@ -53,8 +45,8 @@ export const machine = new Machine(petSwf, (over, next) => {
 })
 
 /** Answering the pet's small talk cheers it up. */
-function cheer(): void {
-  const result = command(state => interact(state, rand(5, 15)))
+async function cheer(): Promise<void> {
+  const result = await command('pet.interact', { face: false })
   if (result.status === 'succeeded') void floatMood(result.data.moodDelta)
 }
 
@@ -233,10 +225,11 @@ export function revive(done?: () => void): void {
 }
 
 let burying = false
-export function bury(done?: () => void): void {
+export async function bury(done?: () => void): Promise<void> {
   if (burying) return
   burying = true
-  update('isBury', true)
+  const result = await command('pet.bury', {})
+  if (result.status === 'failed') { burying = false; return speak({ s: result.error.message, now: true, ai: false }) }
   setTray('bury')
   speak({ c: 'state', s: 'bury' }, 'bury', { start: done })
 }
@@ -244,7 +237,7 @@ export function bury(done?: () => void): void {
 let lastMood = mood()
 onInfoChange((key, prev) => {
   if (key === 'growth') {
-    const before = syncLevel()
+    const before = levelOf(prev as number).level
     const now = save.petComputedlInfo.level
     if (now === before) return
     const first = (now === 5 && before === 4) || (now === 10 && before === 9)
@@ -261,112 +254,25 @@ onInfoChange((key, prev) => {
 
 function healthChanged(prev: number): void {
   const h = info.health
-  if (h < 0 || Number.isNaN(h)) return setInfo('health', 0)
-  if (h > 5) return setInfo('health', 5)
   if (h === 5) {
     if (prev === 0) revive()
-    setActivity('ill', null)
     return setTray('normal')
   }
   if (h === 0) {
-    stopTask()
     speak({ s: DEAD.tolk, now: true }, 'dying', { start: () => machine.add({ a: 'die' }) })
     return setTray('dead')
   }
-  if (!activity('ill')) setActivity('ill', `${rand(0, 2)}-`)
   complain()
   setTray('ill')
 }
 
-/** Last accounted time; null makes the next tick only start the clock (start-up, or after a pause). */
-let lastTick: number | null = null
-onSaveChange(change => {
-  if (change.settings?.paused !== undefined) lastTick = null
-})
-
-const MOOD_OUT = { work: 'stopWorkFoMood0', study: 'stopStudyFoMood0' }
-
-/** Per-minute accounting: online time, stat decay and growth for the elapsed minutes. */
-function tick(): void {
-  const now = Math.floor(Date.now() / 1000)
-  const today = dayStart(now)
-  if (save.nowTimeLine <= today) {
-    setInfo('onlineDataTime', 0)
-    newDay(today)
-    void daily()
-  }
-  if (lastTick !== null) {
-    const minutes = +((now - lastTick) / 60).toFixed(5)
-    addInfo('onlineDataTime', minutes)
-    addInfo('onLineTime', minutes)
-    // Work and study wear the pet out faster.
-    const extra = busy() ? 1 : 0
-    const moodRate = rand(1, 2) + extra
-    // Growth only counts the minutes the mood lasted; an activity stops when it runs out.
-    const grown = Math.min(minutes, info.mood / moodRate)
-    if (grown < minutes) {
-      const stopped = stopTask()
-      if (stopped) speak({ c: 'state', s: MOOD_OUT[stopped], now: true }, 'speak')
-    }
-    setInfo('mood', Math.max(info.mood - moodRate * minutes, 0))
-    setInfo('hunger', Math.max(info.hunger - (rand(2, 3) + extra) * minutes, 0))
-    setInfo('clean', Math.max(info.clean - (rand(2, 3) + extra) * minutes, 0))
-    addInfo('growth', +(growthPerMinute() * grown).toFixed(8))
-    if (info.sweetHeart) selfCare()
-    for (const type of tickTimed(grown)) speak({ c: 'state', s: `${type}Over`, now: true }, 'speak')
-    advanceTask(grown)
-  }
-  lastTick = now
-  update('nowTimeLine', now)
-}
-
-/** The first need under 60% (food before cleaning before play), with the words the pet says. */
-const NEEDS = [
-  { stat: 'hunger', type: 'food', act: '吃东西' },
-  { stat: 'clean', type: 'clean', act: '洗白白' },
-  { stat: 'mood', type: 'toy', act: '玩玩具' },
-] as const
-
-/** Sweetheart: the pet tends its most urgent need with the first matching good it owns. */
-function selfCare(): void {
-  const need = NEEDS.find((n) => info[n.stat] / save.petComputedlInfo[`${n.stat}Max`] < 0.6)
-  if (!need) return
-  const g = listGoods(need.type, 1, 1).list[0]
-  if (g) useItem(g, `[host]，我可以自己${need.act}哦！~~使用了：${g.name}`)
-}
-
-/**
- * Per minute, by fatigue squared: a well-kept pet never falls ill, a badly neglected one (fatigue 7) in about a day and
- * a half. The original fell ill within about 2 hours at fatigue 1.
- */
-const ILL_RATE = 1 / 100_000
-
-/** Illness for a run-down pet, and further health loss once ill. */
-function healthRoll(): void {
-  const f = fatigue()
-  if (!f) return
-  if (info.health !== 5) {
-    // 8x slower than the original: at its rate an unattended Lv1 pet died within one night (median ~9.5 h).
-    if (rand(0, (700 - f * 50) * 8) < 5) setInfo('health', info.health - 1)
-    return
-  }
-  if (Math.random() < f * f * ILL_RATE) {
-    setActivity('ill', `${rand(0, 2)}-`)
-    setInfo('health', 4)
-  }
-}
-
-/** A dead or paused pet does not age; the minutes in between are never accounted. */
-function grow(): void {
-  if (info.health <= 0 || save.settings.paused) {
-    lastTick = null
-    return
-  }
-  tick()
+onPetEvent(event => {
   refreshTray()
-  healthRoll()
-  nag()
-}
+  if (event.type === 'new-day') daily()
+  else if (event.type === 'mood-exhausted') speak({ c: 'state', s: event.kind === 'work' ? 'stopWorkFoMood0' : 'stopStudyFoMood0', now: true }, 'speak')
+  else if (event.type === 'timed-expired') speak({ c: 'state', s: event.kind + 'Over', now: true }, 'speak')
+  else if (event.type === 'self-care') presentItem({ status: 'succeeded', data: event.receipt }, '[host]，我可以自己' + event.action + '哦！~~使用了：' + event.receipt.good.name)
+})
 
 /** Local greetings stay available without a network connection. */
 let dailyDay = 0
@@ -377,11 +283,12 @@ function daily(): void {
   if (line) speak({ s: line }, 'speak')
 }
 
+let started = false
 function startGrowth(): void {
-  grow()
-  // A task resumed after a restart may be due already.
-  advanceTask(0)
-  setInterval(grow, 60_000)
+  if (started) return
+  started = true
+  void window.qqpet.start().catch((error: unknown) => speak({ s: String(error), ai: false, now: true }))
+  setInterval(nag, 60_000)
 }
 
 export function startPet(): void {
@@ -399,9 +306,8 @@ export function startPet(): void {
     // Half the launches greet by the time of day instead of the original enter lines.
     const g = a === 'enter' && Math.random() < 0.5 ? greeting() : null
     machine.play({ a, s: () => speak(g ? { s: g.tolk, b: g.submitText } : { c: a }) })
-    if (info.growth === 0) addInfo('growth', 1)
     void daily()
   }
-  if (!save.isBury) startGrowth()
+  startGrowth()
   machine.start()
 }

@@ -1,9 +1,8 @@
 import { elapsed, stopTask } from '../pet/activity'
 import { goodOf, type TimedType } from '../../core/pet/catalog'
-import { pay } from '../pet/items'
+import { command } from '../pet/commands'
 import { speak } from '../pet/pet'
-import { activity, growthPerMinute, info, onInfoChange, save, setInfo } from '../pet/store'
-import { addSweetHeart } from '../pet/vip'
+import { activity, growthPerMinute, info, onInfoChange, save } from '../pet/store'
 import { openGoods } from './control'
 import './css/state.css'
 import { formatDate } from './date'
@@ -37,8 +36,8 @@ export function age(minutes: number): string {
   return (h ? `${h}小时` : '') + (m || !h ? `${m}分钟` : '')
 }
 
-function stop(): void {
-  const k = stopTask()
+async function stop(): Promise<void> {
+  const k = await stopTask()
   const b = BUSY.find((x) => x.key === k)
   if (b) speak({ c: 'state', s: b.stop, now: true }, 'speak')
   render()
@@ -61,10 +60,10 @@ function sweetHeart(): void {
       msg: '托管费用：300元宝/一天',
       max: 30,
       sweet: true,
-      ok: (close, n) => {
+      ok: async (close, n) => {
         close()
-        if (!pay(300 * n)) return
-        addSweetHeart(n)
+        const result = await command('pet.sweetheart', { days: n })
+        if (result.status === 'failed') return windowView({ msg: result.error.message })
         speak({ s: `[host],贴心宝贝${formatDate(info.sweetHeartOverTime)}过期，我真是太爱你了！~`, now: true }, 'speak')
       },
     })
@@ -74,9 +73,10 @@ function sweetHeart(): void {
     title: '贴心宝贝',
     msg: on ? '当前贴心宝贝已开启，开启自动喂食以及贴心宝贝效果，是否继续？~~' : '关闭后只是关闭自动喂养功能，是否继续？~~',
     sweet: true,
-    ok: (close) => {
+    ok: async (close) => {
+      const result = await command('pet.sweetheart', { enabled: on })
+      if (result.status === 'failed') return windowView({ msg: result.error.message })
       speak({ s: on ? '[host],开启了贴心宝贝，我真是太爱你了！~' : '[host],我依然还是爱你的，天地可鉴！~', now: true }, 'speak')
-      setInfo('sweetHeart', on)
       close()
     },
   })

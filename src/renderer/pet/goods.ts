@@ -1,5 +1,5 @@
-import { lookupGood, type Good, type GoodType, type TimedType } from '../../core/pet/catalog'
-import { onSaveChange, save, update } from './store'
+import { lookupGood, type Good, type GoodType } from '../../core/pet/catalog'
+import { onSaveChange, save } from './store'
 
 type Listener = (type: GoodType) => void
 const listeners: Listener[] = []
@@ -21,15 +21,4 @@ export function listGoods(type: GoodType, page: number, size: number): Page {
     return good && Number.isSafeInteger(good.num) && good.num > 0 ? [good] : []
   })
   return pageOf(goods, page, size)
-}
-
-export function tickTimed(minutes: number): TimedType[] {
-  const over: TimedType[] = []
-  for (const [type, timed] of Object.entries(save.selfGoodUseOption) as [TimedType, { id: string; left: number } | null][]) {
-    if (!timed) continue
-    const left = timed.left - minutes
-    update('selfGoodUseOption', { [type]: left > 0 ? { ...timed, left } : null })
-    if (left <= 0) over.push(type)
-  }
-  return over
 }

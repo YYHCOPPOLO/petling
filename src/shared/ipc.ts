@@ -1,8 +1,13 @@
 import type { SaveData, SavePatch, Sex } from './save'
+import type { PetReply, PetRequest, PetSnapshot, PetUpdate } from './pet-command'
 
 export const IPC = {
   load: 'pet:load',
   save: 'pet:save',
+  snapshot: 'pet:snapshot',
+  command: 'pet:command',
+  state: 'pet:state',
+  start: 'pet:start',
   flush: 'pet:flush',
   platformError: 'app:platform-error',
   resetPet: 'pet:reset',
@@ -82,8 +87,12 @@ export interface AiMessage {
 /** Exposed to the renderer as `window.qqpet` by the preload script. */
 export interface QQPetApi {
   load(): Promise<SaveData>
-  /** Merges object groups field by field, replaces other keys, then persists. */
-  save(patch: SavePatch): void
+  snapshot(): Promise<PetSnapshot>
+  command(request: PetRequest): Promise<PetReply>
+  start(): Promise<void>
+  onState(listener: (update: PetUpdate) => void): void
+  /** Only desktop preferences/name/position; gameplay is owned by the host. */
+  save(patch: SavePatch): Promise<PetSnapshot>
   /** Resolves after previously submitted saves reach persistent storage. */
   flush(): Promise<void>
   /** Buries the pet and relaunches into egg selection, or straight into a newborn of `sex`. */

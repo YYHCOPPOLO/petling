@@ -1,20 +1,14 @@
-import { countGood, purchase, spend, treatPet, unitPrice, usePetItem, type ItemReceipt } from '../../core/pet/items'
+import { countGood, unitPrice, type ItemReceipt } from '../../core/pet/items'
 import { goodOf, type Good } from '../../core/pet/catalog'
 import { DEAD, illOf } from '../../core/pet/illness'
-import type { PetResult } from '../../core/pet/result'
+import type { PetOutcome } from '../../shared/pet-command'
 import { floatMood } from '../ui/float'
 import { windowView } from '../ui/window-view'
 import { command } from './commands'
 import { speak } from './pet'
 import { info, save } from './store'
 
-export function pay(amount: number): boolean {
-  const result = command(state => spend(state, amount))
-  if (result.status === 'failed') windowView({ msg: result.error.message })
-  return result.status === 'succeeded'
-}
-
-function present(result: PetResult<ItemReceipt>, text?: string): void {
+export function presentItem(result: PetOutcome<ItemReceipt>, text?: string): void {
   if (result.status === 'failed') {
     speak({ s: result.error.message, now: true, ai: false }, 'speak')
     return
@@ -29,7 +23,7 @@ function present(result: PetResult<ItemReceipt>, text?: string): void {
 
 /** Dialogs collect input; the core commits effects before any animation starts. */
 export function useItem(good: Good, text?: string): void {
-  const use = (quantity = 1): void => present(command(state => usePetItem(state, good.type, good.id, quantity)), text)
+  const use = (quantity = 1): void => { void command('pet.useItem', { type: good.type, id: good.id, quantity }).then(result => presentItem(result, text)) }
   if (good.type === 'nums') {
     const count = countGood(save, good.type, good.id)
     if (!count) return use()
@@ -45,8 +39,8 @@ export const discount = (amount: number): number => Math.round(amount * 0.8)
 export const price = (good: Good): number => unitPrice(save, good)
 
 /** All cart items succeed together, or leave inventory and balance unchanged. */
-export function buyCart(items: [Good, number][]): boolean {
-  const result = command(state => purchase(state, items.map(([good, quantity]) => ({ type: good.type, id: good.id, quantity }))))
+export async function buyCart(items: [Good, number][]): Promise<boolean> {
+  const result = await command('pet.purchase', { items: items.map(([good, quantity]) => ({ type: good.type, id: good.id, quantity })) })
   if (result.status === 'failed') windowView({ msg: result.error.message })
   return result.status === 'succeeded'
 }
@@ -62,13 +56,16 @@ export function doctor(): void {
       title: '诊断结果',
       msg: `${info.health === 0 ? '宠物已经死亡' : `宠物患上了${illness.name}`}，需要${good.name}。${owned ? '使用背包中的药品治疗？' : `花费${cost}元宝购买并治疗？`}`,
       goods: [good],
-      ok: close => { close(); present(command(state => treatPet(state, good.id))) },
+      ok: close => { close(); void command('pet.treat', { medicineId: good.id }).then(result => presentItem(result)) },
     })
   }
   if (info.health === 0) return diagnose()
   windowView({ title: '看病', msg: `花费${(5 - info.health) * 10}元宝进行诊断？`, ok: close => {
     close()
     if (info.health === 5) return
-    if (pay((5 - info.health) * 10)) diagnose()
+    void command('pet.diagnose', {}).then(result => {
+      if (result.status === 'succeeded') diagnose()
+      else windowView({ msg: result.error.message })
+    })
   } })
 }

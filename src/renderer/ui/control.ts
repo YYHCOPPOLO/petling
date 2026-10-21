@@ -32,7 +32,7 @@ interface Panel {
   list: (page: number) => Page
   lines: (g: Good) => string[]
   /** Returns true when the panel should close. */
-  use: (g: Good) => boolean
+  use: (g: Good) => boolean | Promise<boolean>
   /** Everyday panels: the inventory type shown, with the bar of the stat it restores and a shop link. */
   type?: GoodType
   stat?: Stat
@@ -227,8 +227,8 @@ function openPanel(p: Panel, page = 1): void {
         'goodItemIconBox fcc',
         div('goodInfo', div('goodName', g.name), ...p.lines(g).map((l) => div('goodDatas', l))),
         Object.assign(img('goodItemIcon', g.url), {
-          onclick: () => {
-            if (p.use(g)) closePanel()
+          onclick: async () => {
+            if (await p.use(g)) closePanel()
           },
         }),
       ),

@@ -1,4 +1,4 @@
-import { setInfo, update } from '../pet/store'
+import { command } from '../pet/commands'
 import { SwfPlayer } from '../swf/player'
 import { openBox } from './box'
 import { button, div } from './dom'
@@ -15,9 +15,9 @@ export function adopt(done: () => void): void {
   const close = openBox(host, { onClose: () => (open = false) })
   void new SwfPlayer(host).load('pet/reset/Adopt.swf')
   window.ChooseAPI = {
-    ChooseSex: (n) => {
-      setInfo('sex', n === 0 ? 'GG' : 'MM')
-      update('havePet', true)
+    ChooseSex: async (n) => {
+      const result = await command('pet.adopt', { sex: n === 0 ? 'GG' : 'MM' })
+      if (result.status === 'failed') return windowView({ msg: result.error.message })
       close()
       open = false
       done()
