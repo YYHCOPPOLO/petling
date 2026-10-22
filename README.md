@@ -9,6 +9,7 @@
 - 商城、购物车、背包、玩具与背景装扮。
 - 学习、升学考试、打工及活动进度恢复。
 - 可选 AI 聊天、基础设置与存档导入导出。
+- 本机持久化对话、性格与手动记忆；聊天任务可查看、取消和中断后继续。
 
 基础养成无需 AI 或网络。旅游、农场、社区、签到任务和复杂小游戏已归档，不参与运行构建；旧存档继续兼容，资源包已按基础功能依赖精简。
 
@@ -39,7 +40,7 @@ npm run dist:win       # Windows 安装包，在 Windows 上执行
 npm run dist:mac       # macOS 安装包，在 macOS 上执行
 ```
 
-安装包输出到 `dist/`。存档位于应用数据目录的 `AgentPet/save.json`，导出默认排除 API Key。
+安装包输出到 `dist/`。宠物存档位于应用数据目录的 `AgentPet/save.json`，导出默认排除 API Key。身份、记忆和对话独立保存在 `companion.sqlite`；宠物重生时保留，现有宠物导出不包含该数据库。
 
 GitHub Actions 在推送和 PR 时自动检查并打包 Windows/macOS。推送与包版本一致的 `v*` 标签后，全部平台验证通过才发布 Release，附安装包、SHA256 和源码提交清单。当前 Windows 未签名、macOS 为 ad-hoc 签名且未 notarize。版本发布和权限说明见 [发布文档](docs/releases.md)。
 
@@ -47,6 +48,6 @@ GitHub Actions 在推送和 PR 时自动检查并打包 Windows/macOS。推送�
 
 [产品需求](docs/product-requirements.md) · [性能要求](docs/performance-requirements.md) · [重构评估](docs/agent-refactor-assessment.md) · [基础重构](docs/basic-refactor.md) · [架构说明](docs/architecture.md) · [验证记录](docs/verification.md) · [资源替换](docs/assets.md)
 
-目前已开始 M0：[状态托管与可靠命令](docs/m0-state-host.md) 已实现，任务/记忆持久化、Agent 执行和性能基线仍在后续范围。
+目前已实现 M0 的[状态托管与可靠命令](docs/m0-state-host.md)及[身份、记忆和聊天任务持久化](docs/m0-companion-store.md)。工具执行循环、外部 Agent、凭据迁移、完整备份和性能基线仍待完成。
 
 基于 [AnkioTomas/qqpet](https://github.com/AnkioTomas/qqpet)，代码采用 [GPL-3.0-only](LICENSE)。QQ 宠物美术及 SWF 等资源的版权和来源见 [第三方声明](THIRD_PARTY_NOTICES.md)。

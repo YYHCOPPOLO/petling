@@ -9,6 +9,7 @@ import { APP_NAME } from '../../shared/app-info'
 import { exportSave, getSave, importSave, petHost, resetSave } from '../save'
 import type { createPetTray } from '../tray'
 import type { Lifetime } from '../lifecycle'
+import { companionHost, closeCompanion } from '../companion'
 
 type TrayService = ReturnType<typeof createPetTray>
 
@@ -37,7 +38,11 @@ export function registerDesktopIpc(win: BrowserWindow, tray: TrayService, lifeti
     lifetime.defer(() => ipcMain.removeListener(channel, listener))
   }
   // Imported/reset data must not be overwritten by the old renderer's pending patch.
-  const relaunch = (): void => { lifetime.dispose(); app.relaunch(); app.exit(0) }
+  const relaunch = async (): Promise<void> => { await closeCompanion(); lifetime.dispose(); app.relaunch(); app.exit(0) }
+
+  const companion = companionHost()
+  handle(IPC.companion, (name, input) => companion.invoke(name, input))
+  lifetime.defer(companion.subscribe(() => { if (!win.isDestroyed()) win.webContents.send(IPC.companionChanged) }))
 
   handle(IPC.load, () => getSave())
   const host = petHost()
@@ -52,7 +57,7 @@ export function registerDesktopIpc(win: BrowserWindow, tray: TrayService, lifeti
   handle(IPC.start, () => host.start())
   handle(IPC.save, (patch: SavePatch) => host.preferences(patch))
   handle(IPC.flush, () => undefined)
-  on(IPC.resetPet, (sex?: Sex) => { resetSave(sex); relaunch() })
+  on(IPC.resetPet, (sex?: Sex) => { resetSave(sex); return relaunch() })
   handle(IPC.exportSave, async () => {
     const day = new Date().toISOString().slice(0, 10)
     const result = await dialog.showSaveDialog(win, { defaultPath: `${APP_NAME}-${day}.json`, filters: [{ name: '宠物存档', extensions: ['json'] }] })
@@ -64,7 +69,7 @@ export function registerDesktopIpc(win: BrowserWindow, tray: TrayService, lifeti
     const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: '宠物存档', extensions: ['json'] }] })
     if (result.canceled || !result.filePaths[0]) return
     importSave(result.filePaths[0])
-    relaunch()
+    await relaunch()
   })
   handle(IPC.aiModels, (config: Omit<AiConfig, 'model'>) => {
     assertJson(config)

@@ -1,12 +1,30 @@
-.ui-chat .chatMain {width:340px;height:380px;padding:10px;box-sizing:border-box;font-size:13px;color:#2a1608eb}
+.ui-chat .chatMain {width:520px;height:560px;padding:12px;box-sizing:border-box;font-size:13px;color:#2a1608eb;gap:8px}
 .ui-chat .chatTitle {font-weight:700;color:#5a2803;padding-bottom:6px}
 .ui-chat .chatLog {overflow:hidden auto;display:flex;flex-direction:column;padding:6px;background:#fff6}
 .ui-chat .chatLine {max-width:80%;padding:5px 9px;border-radius:10px;line-height:1.4;word-break:break-all;-webkit-user-select:text;user-select:text}
 .ui-chat .chatLine.user {align-self:flex-end;background:#f3e0a8}
 .ui-chat .chatLine.assistant {align-self:flex-start;background:#fff;border:1px solid #e6c669}
 .ui-chat .chatBar {padding-top:8px}
-.ui-chat .chatInput {height:28px;padding:0 8px;border:1px solid #c9a46b;border-radius:4px;outline:none;font-size:13px;background:#fffdf6}
+.ui-chat .chatInput {min-height:48px;padding:6px 8px;border:1px solid #c9a46b;border-radius:4px;outline:none;font-size:13px;background:#fffdf6;resize:vertical}
 .ui-chat .chatSend {width:52px;height:28px;border-radius:4px;background:#e3b82b;color:#5a2803;cursor:pointer}
 .ui-chat .chatSend:hover {background:#d4a824}
 .ui-chat .chatLog > * + * {margin-top:6px}
 .ui-chat .chatBar > * + * {margin-left:6px}
+.ui-chat .companionContent {min-height:0;overflow:auto}
+.ui-chat .chatLog {min-height:0}
+.ui-chat .chatSend,.ui-chat .companionButton {width:auto;min-width:52px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;height:28px;border-radius:4px;background:#e3b82b;color:#5a2803;cursor:pointer}
+.ui-chat .companionActions {display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ui-chat .companionSessions {flex:1;min-width:100px;max-width:270px}
+.ui-chat .companionStatus,.ui-chat .companionHelp {font-size:12px;color:#715a3e;line-height:1.5;white-space:pre-wrap}
+.ui-chat .companionStatus {min-height:36px;max-height:80px;overflow:auto}
+.ui-chat .companionField {display:flex;flex-direction:column;gap:5px;margin:8px 0}
+.ui-chat .companionField input,.ui-chat .companionField textarea,.ui-chat select {font:inherit;padding:5px;background:#fffdf6;border:1px solid #c9a46b;border-radius:4px}
+.ui-chat .companionField textarea {resize:vertical;min-height:60px}
+.ui-chat .companionCard {padding:10px;margin:8px 0;background:#fff8;border-radius:6px;display:flex;flex-direction:column;gap:6px;word-break:break-word;white-space:pre-wrap;user-select:text}
+.ui-chat .companionTask {font-weight:600}
+.ui-chat .companionDetail {font-size:11px;white-space:pre-wrap;max-height:180px;overflow:auto}
+.ui-chat .companionLink {font-size:12px;color:#654b12;text-decoration:underline;cursor:pointer;align-self:flex-start}
+.ui-chat button {border:0;font:inherit}
+.ui-chat button[aria-pressed=true] {background:#805018;color:white}
+.ui-chat button:focus-visible {outline:2px solid #805018;outline-offset:2px}
+.ui-chat .companionLink {background:transparent;padding:0}

@@ -106,6 +106,8 @@ async function loaded(selector) {
 
 let chatRequest
 let chatReply = '你好，我是桌面小企鹅。'
+const heldReplies = new Map()
+let companionFixture
 const server = createServer((request, response) => {
   response.setHeader('Content-Type', 'application/json')
   if (request.url === '/v1/models') { response.end(JSON.stringify({ data: [{ id: 'desktop-test-model' }] })); return }
@@ -113,6 +115,8 @@ const server = createServer((request, response) => {
   request.on('data', chunk => { body += chunk })
   request.on('end', () => {
     chatRequest = JSON.parse(body)
+    const text = chatRequest.messages.at(-1)?.content
+    if (text?.startsWith('TEST-HOLD')) { heldReplies.set(text, () => response.end(JSON.stringify({ choices: [{ message: { content: '迟到的测试回复' } }] }))); return }
     response.end(JSON.stringify({ choices: [{ message: { content: chatReply } }] }))
   })
 })
@@ -283,6 +287,52 @@ try {
     await page.locator('.ui-setup .close').click()
   })
 
+  await check('身份和记忆面板保存、修改与遗忘，数据独立于宠物存档', async () => {
+    await menu('和我聊天')
+    await page.locator('.companionTab-identity').click()
+    await page.locator('.companionField textarea').fill('温暖、耐心，回答直接清楚。')
+    await page.locator('.companionField input').fill('测试主人')
+    await page.locator('.companionButton').filter({ hasText: /^保存性格$/ }).click()
+    await page.waitForFunction(() => document.querySelector('.companionStatus').textContent.includes('已保存性格'))
+    await page.locator('.companionTab-memory').click()
+    await page.locator('.companionButton').filter({ hasText: /^添加$/ }).click()
+    await page.locator('.companionEditor textarea').fill('喜欢蓝色和简短回答')
+    await page.locator('.companionButton').filter({ hasText: /^保存记忆$/ }).click()
+    await page.locator('.companionMemoryText').filter({ hasText: '喜欢蓝色' }).waitFor()
+    companionFixture = await page.evaluate(async () => ({ identity: await window.qqpet.companion('identity.get', {}), memory: (await window.qqpet.companion('memory.list', { query: '蓝色' }))[0], sessionId: document.querySelector('.companionSessions').value }))
+    await page.locator('.companionButton').filter({ hasText: /^修改$/ }).click()
+    await page.locator('.companionEditor textarea').fill('喜欢蓝色，回答请保留必要细节')
+    await page.locator('.companionButton').filter({ hasText: /^保存记忆$/ }).click()
+    await page.locator('.companionMemoryText').filter({ hasText: '必要细节' }).waitFor()
+    await capture('09-companion-memory')
+    await page.locator('.companionButton').filter({ hasText: /^遗忘$/ }).click()
+    await page.waitForFunction(() => document.querySelectorAll('.companionMemoryText').length === 0)
+    const saved = await page.evaluate(() => window.qqpet.load())
+    assert.equal(JSON.stringify(saved).includes('必要细节'), false)
+    await page.locator('.box .close').last().click()
+  })
+
+  await check('关闭面板和暂停成长不停止回复；取消任务阻止迟到回复', async () => {
+    await page.evaluate(async () => { await window.qqpet.save({ settings: { aiModel: 'desktop-test-model', paused: true, hidden: true } }) })
+    await menu('和我聊天')
+    await page.locator('.chatInput').fill('TEST-HOLD-CANCEL')
+    await page.locator('.chatSend').click()
+    await page.waitForFunction(async id => (await window.qqpet.companion('task.list', { sessionId: id }))[0]?.state === 'running', companionFixture.sessionId)
+    await page.locator('.box .close').last().click()
+    const task = (await page.evaluate(id => window.qqpet.companion('task.list', { sessionId: id }), companionFixture.sessionId))[0]
+    assert.equal(task.state, 'running')
+    await menu('和我聊天')
+    await page.locator('.companionTab-tasks').click()
+    await page.locator('.companionCard').filter({ hasText: 'TEST-HOLD-CANCEL' }).locator('.companionButton').filter({ hasText: /^取消$/ }).click()
+    for (let attempt = 0; attempt < 100 && !heldReplies.has('TEST-HOLD-CANCEL'); attempt++) await delay(20)
+    heldReplies.get('TEST-HOLD-CANCEL')?.()
+    await page.waitForFunction(async id => (await window.qqpet.companion('task.list', { sessionId: id }))[0]?.state === 'cancelled', companionFixture.sessionId)
+    assert.equal((await page.evaluate(id => window.qqpet.companion('chat.history', { sessionId: id }), companionFixture.sessionId)).some(message => message.content === '迟到的测试回复'), false)
+    await capture('10-companion-tasks')
+    await page.locator('.box .close').last().click()
+    await page.evaluate(async () => { await window.qqpet.save({ settings: { aiModel: '', paused: false, hidden: false } }) })
+  })
+
   await check('AI 兼容接口和原生存档导出', async () => {
     const endpoint = `http://127.0.0.1:${server.address().port}/v1`
     const result = await page.evaluate(async endpoint => {
@@ -311,6 +361,11 @@ try {
 
   await check('退出前写入尚未提交的昵称修改', async () => {
     await page.locator('.ui-setup .close').click()
+    companionFixture.pending = await page.evaluate(async id => {
+      await window.qqpet.save({ settings: { aiModel: 'desktop-test-model' } })
+      return await window.qqpet.companion('chat.send', { sessionId: id, requestId: crypto.randomUUID(), message: 'TEST-HOLD-RESTART' })
+    }, companionFixture.sessionId)
+    await page.waitForFunction(async id => (await window.qqpet.companion('task.list', { sessionId: id }))[0]?.state === 'running', companionFixture.sessionId)
     await menu('宠物资料')
     await page.locator('.petName input').fill('基础版回归企鹅')
     const closing = app.waitForEvent('close')
@@ -321,6 +376,19 @@ try {
     await closing
     const after = JSON.parse(readFileSync(resolve(data, 'save.json'), 'utf8'))
     assert.equal(after.petInfo.name, '基础版回归企鹅')
+  })
+
+  await check('重启保留身份和历史消息；未完成回复中断且不自动重发', async () => {
+    await launchApplication()
+    await loaded('#pet')
+    const restored = await page.evaluate(async id => ({ identity: await window.qqpet.companion('identity.get', {}), tasks: await window.qqpet.companion('task.list', { sessionId: id }), history: await window.qqpet.companion('chat.history', { sessionId: id }), memory: await window.qqpet.companion('memory.list', { query: '蓝色' }) }), companionFixture.sessionId)
+    assert.equal(restored.identity.id, companionFixture.identity.id)
+    assert.equal(restored.identity.address, '测试主人')
+    assert.equal(restored.tasks.find(task => task.id === companionFixture.pending.id).state, 'interrupted')
+    assert.equal(restored.history.some(message => message.content === 'FEED 已经吃完啦'), true)
+    assert.equal(restored.memory.length, 0)
+    await page.evaluate(async id => { await window.qqpet.companion('task.cancel', { id }); await window.qqpet.save({ settings: { aiModel: '' } }) }, companionFixture.pending.id)
+    await app.close()
   })
 
   await check('重启恢复课程只结算一次，旧扩展数据保持休眠', async () => {
@@ -439,6 +507,7 @@ try {
   if (page && !page.isClosed()) await capture('failure').catch(() => {})
   throw error
 } finally {
+  server.closeAllConnections()
   await new Promise(resolve => server.close(resolve))
   await cleanup()
   writeFileSync(resolve(output, 'electron.log'), logs.join('\n'))

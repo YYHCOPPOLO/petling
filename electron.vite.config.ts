@@ -15,7 +15,7 @@ const definitions = {
 export default defineConfig({
   main: {
     define: definitions,
-    build: { rollupOptions: { input: resolve('src/main/index.ts') } },
+    build: { rollupOptions: { input: { index: resolve('src/main/index.ts'), 'companion-worker': resolve('src/main/companion-worker.ts') } } },
   },
   preload: {
     build: { rollupOptions: { input: resolve('src/preload/index.ts'), output: { format: 'cjs', entryFileNames: '[name].cjs' } } },

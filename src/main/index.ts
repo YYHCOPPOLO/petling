@@ -8,6 +8,7 @@ import { Lifetime } from './lifecycle'
 import { registerDesktopIpc } from './services/ipc'
 import { observeDesktop } from './services/observers'
 import { IPC } from '../shared/ipc'
+import { closeCompanion } from './companion'
 
 app.setName(APP_NAME)
 if (process.env.AGENT_PET_TEST_DATA) app.setPath('userData', process.env.AGENT_PET_TEST_DATA)
@@ -18,17 +19,21 @@ else {
   const lifetime = new Lifetime()
   let petWindow: BrowserWindow | undefined
   let quitting = false
+  let readyToQuit = false
   app.on('before-quit', event => {
-    if (quitting || !petWindow || petWindow.isDestroyed()) { lifetime.dispose(); return }
+    if (readyToQuit) { lifetime.dispose(); return }
     event.preventDefault()
+    if (quitting) return
     quitting = true
     let timer: ReturnType<typeof setTimeout>
     void Promise.race([
-      petWindow.webContents.executeJavaScript('window.__qqpetClosing = true; window.__qqpetFlush?.()'),
+      petWindow && !petWindow.isDestroyed() ? petWindow.webContents.executeJavaScript('window.__qqpetClosing = true; window.__qqpetFlush?.()') : Promise.resolve(),
       new Promise<void>(resolve => { timer = setTimeout(resolve, 1500) }),
-    ]).catch(error => console.error('退出时存档写入失败：', error)).finally(() => {
+    ]).catch(error => console.error('退出时存档写入失败：', error)).finally(async () => {
       clearTimeout(timer)
+      try { await closeCompanion() } catch (error) { console.error('退出时任务保存失败：', error) }
       lifetime.dispose()
+      readyToQuit = true
       app.quit()
     })
   })

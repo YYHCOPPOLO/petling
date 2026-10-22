@@ -61,7 +61,7 @@ async function exportSave(): Promise<void> {
 function importSave(): void {
   windowView({
     title: '导入存档',
-    msg: '导入的存档会替换当前宠物（当前存档会备份为 save.json.bak），导入后自动重启，确定吗？',
+    msg: '导入会替换当前宠物并重启（宠物存档备份为 save.json.bak）。本机性格、记忆和历史对话保留；进行中的回复会中断。确定吗？',
     ok: (close) => {
       close()
       void window.qqpet.importSave().catch(() => windowView({ title: '导入存档', msg: '这不是有效的QQ宠物存档~' }))
@@ -72,7 +72,7 @@ function importSave(): void {
 function rebornAsOther(): void {
   windowView({
     title: '重生为另一个性别~',
-    msg: '点击将会清空当前宠物数据，并重生为另一个性别的宠物，请慎重选择',
+    msg: '将重生为另一个性别的宠物。性格、记忆和历史对话保留；进行中的回复会中断，可稍后继续。',
     ok: () => window.qqpet.resetPet(info.sex === 'GG' ? 'MM' : 'GG'),
   })
 }
@@ -191,6 +191,7 @@ const TABS: { label: string; options: Option[] }[] = [
   {
     label: '存档',
     options: [
+      { type: 'see', label: '范围', value: '下列导入导出仅含宠物存档；性格、记忆和对话保存在本机独立数据库，暂未提供导出恢复入口。' },
       { type: 'button', label: '导出存档', title: '把当前宠物保存成一个文件，可用于备份或换电脑', run: exportSave },
       { type: 'button', label: '导入存档（支持原版 config.json）', title: '用存档文件替换当前宠物，导入后自动重启', run: importSave },
     ],

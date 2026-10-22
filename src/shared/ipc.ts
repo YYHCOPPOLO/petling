@@ -1,8 +1,11 @@
 import type { SaveData, SavePatch, Sex } from './save'
 import type { PetReply, PetRequest, PetSnapshot, PetUpdate } from './pet-command'
+import type { CompanionApi } from './companion'
 
 export const IPC = {
   load: 'pet:load',
+  companion: 'companion:invoke',
+  companionChanged: 'companion:changed',
   save: 'pet:save',
   snapshot: 'pet:snapshot',
   command: 'pet:command',
@@ -86,6 +89,8 @@ export interface AiMessage {
 
 /** Exposed to the renderer as `window.qqpet` by the preload script. */
 export interface QQPetApi {
+  companion: CompanionApi
+  onCompanionChanged(listener: () => void): () => void
   load(): Promise<SaveData>
   snapshot(): Promise<PetSnapshot>
   command(request: PetRequest): Promise<PetReply>

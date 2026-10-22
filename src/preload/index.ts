@@ -7,6 +7,12 @@ const send =
     ipcRenderer.send(channel, arg)
 
 const api: QQPetApi = {
+  companion: (name, input) => ipcRenderer.invoke(IPC.companion, name, input),
+  onCompanionChanged: listener => {
+    const notify = (): void => listener()
+    ipcRenderer.on(IPC.companionChanged, notify)
+    return () => { ipcRenderer.removeListener(IPC.companionChanged, notify) }
+  },
   load: () => ipcRenderer.invoke(IPC.load),
   snapshot: () => ipcRenderer.invoke(IPC.snapshot),
   command: request => ipcRenderer.invoke(IPC.command, request),

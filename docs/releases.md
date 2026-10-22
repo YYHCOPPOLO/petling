@@ -2,6 +2,8 @@
 
 工作流为 `.github/workflows/desktop.yml`。普通分支推送、PR 和手动运行执行版本检查、单元测试、资源审计、类型检查、生产构建、源码 Electron 回归、打包及解包产物回归。安装包与诊断报告分开上传，诊断不包含测试存档。
 
+首次自动发布已验证：[v0.1.0](https://github.com/YYHCOPPOLO/petling/releases/tag/v0.1.0) 包含五个安装包、SHA256 与来源清单，[标签工作流](https://github.com/YYHCOPPOLO/petling/actions/runs/39623103155) 已全部通过。该版本对应第一批状态宿主；后续主分支改动不会覆盖这个已发布版本。
+
 Windows 生成 x64 NSIS 安装程序；macOS 生成 arm64 与 x64 的 DMG 和 ZIP。解包产物在各 runner 的原生架构运行，macOS 的另一架构只做交叉打包，不据此宣称已通过对应架构的桌面回归。
 
 ## 发布版本

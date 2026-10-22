@@ -39,7 +39,7 @@ function quit(): void {
 
 export function readopt(): void {
   closeMenu()
-  windowView({ title: '重新领养宠物~', msg: '点击将会清空当前宠物数据，并且重置为未领养状态，请慎重选择', ok: () => window.qqpet.resetPet() })
+  windowView({ title: '重新领养宠物~', msg: '将重置为未领养状态。性格、记忆和历史对话保留；进行中的回复会中断，可稍后继续。', ok: () => window.qqpet.resetPet() })
 }
 
 export function setHidden(on: boolean): void {
@@ -61,10 +61,11 @@ function togglePaused(): void {
 
 function items(adopt: () => void): Item[] {
   const leave = { label: '退出宠物', run: quit }
-  if (!save.havePet) return [{ label: '选择宠物', run: adopt }, leave]
+  const chat = { label: '和我聊天', run: openChat }
+  if (!save.havePet) return [{ label: '选择宠物', run: adopt }, chat, leave]
   if (save.isBury) {
     const title = '点击将会清空当前宠物数据，并且重置为未领养状态，请慎重选择'
-    return [...['您的宠物', '已被埋葬~', '请重新', '领养一个', '把！~'].map((label) => ({ label, title, run: readopt })), leave]
+    return [...['您的宠物', '已被埋葬~', '请重新', '领养一个', '把！~'].map((label) => ({ label, title, run: readopt })), chat, leave]
   }
   const help = {
     label: '设置帮助',
@@ -75,7 +76,7 @@ function items(adopt: () => void): Item[] {
       { label: '系统设置', run: openSetup },
     ],
   }
-  if (info.health === 0) return [{ label: '打开商城', run: openShop }, help, { label: '埋葬宠物', run: () => bury() }, leave]
+  if (info.health === 0) return [chat, { label: '打开商城', run: openShop }, help, { label: '埋葬宠物', run: () => bury() }, leave]
   return [
     { label: '和我聊天', run: openChat },
     { label: '打开商城', run: openShop },
